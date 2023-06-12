@@ -1,0 +1,542 @@
+Observation:
+
+1.  kubectl apply -f . created all pods and service in correct order. All pods are created on worker node.
+
+2. After deploying the pods, Able to access both vote and result web page on port http://18.138.35.140:31000/ and http://18.138.35.140:31001/ port. 
+kubectl get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE     IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-b54cd94f4-bjh9c        1/1     Running   0          7m28s   192.168.230.229   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-mghgq     1/1     Running   0          7m28s   192.168.230.230   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-d5hl6   1/1     Running   0          7m28s   192.168.230.231   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-wj2bm      1/1     Running   0          7m28s   192.168.230.232   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-gldzm    1/1     Running   0          7m28s   192.168.230.233   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 result]#
+
+
+3. REsult pod shows body-parser error.
+
+ kubectl logs result-5d57b59f4b-d5hl6 
+Mon, 12 Jun 2023 14:36:50 GMT body-parser deprecated bodyParser: use individual json/urlencoded middlewares at server.js:73:9
+Mon, 12 Jun 2023 14:36:50 GMT body-parser deprecated undefined extended: provide extended option at ../node_modules/body-parser/index.js:104:29
+App running on port 80
+
+
+ kubectl logs redis-868d64d78-mghgq   
+1:C 12 Jun 2023 14:36:49.474 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1:C 12 Jun 2023 14:36:49.474 # Redis version=7.0.11, bits=64, commit=00000000, modified=0, pid=1, just started
+1:C 12 Jun 2023 14:36:49.474 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf
+
+
+4. Vote and result services came up with NodePort type  and other services assigned ClusterIP
+
+ kubectl get service
+NAME         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+db           ClusterIP   10.106.171.140   <none>        5432/TCP         8m22s
+kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP          9m6s
+redis        ClusterIP   10.99.86.6       <none>        6379/TCP         8m22s
+result       NodePort    10.105.87.173    <none>        5001:31001/TCP   8m22s
+vote         NodePort    10.108.207.69    <none>        5000:31000/TCP   8m22s
+[root@ip-172-31-3-91 result]#
+
+
+
+5.  Voting done with 3 client and same is reflected at result link(67% and 33%). Voting pod logs shows receive input for option a and b
+
+
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET / HTTP/1.1" 200 1293 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:41:52,019] INFO in app: Received vote for a
+[2023-06-12 14:41:52 +0000] [10] [INFO] Received vote for a
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:42:18,966] INFO in app: Received vote for b
+[2023-06-12 14:42:18 +0000] [9] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:18 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+172.31.3.91 - - [12/Jun/2023:14:42:19 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+[2023-06-12 14:42:33,973] INFO in app: Received vote for b
+[2023-06-12 14:42:33 +0000] [8] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:33 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+172.31.3.91 - - [12/Jun/2023:14:42:34 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+[root@ip-172-31-3-91 result]#
+
+
+6. Worker pod logs shows processing voting 
+
+ kubectl logs worker-dd46d7584-gldzm
+Waiting for db
+Waiting for db
+Waiting for db
+Connected to db
+Found redis at 10.99.86.6
+Connecting to redis
+Processing vote for 'a' by 'fca3640bd764edb'	
+Processing vote for 'b' by '33a1a6f531c0920'
+Processing vote for 'b' by 'ee4f21c4b21c8dc'
+[root@ip-172-31-3-91 result]#
+
+
+
+7.  After deleting the Vote pod, a new pod came up (as replica is set to 1). Don't see any changes in result web page. Vote web page was showing new container id
+
+ kubectl delete pod vote-94849dc97-gxchm
+ 
+ kubectl get pods|grep -i vote
+vote-94849dc97-ssxbr      1/1     Running   0          7m12s
+
+8. New voter pod logs was still showing old vote 
+
+  kubectl logs vote-94849dc97-wj2bm
+[2023-06-12 14:36:51 +0000] [1] [INFO] Starting gunicorn 20.1.0
+[2023-06-12 14:36:51 +0000] [1] [INFO] Listening at: http://0.0.0.0:80 (1)
+[2023-06-12 14:36:51 +0000] [1] [INFO] Using worker: sync
+[2023-06-12 14:36:51 +0000] [7] [INFO] Booting worker with pid: 7
+[2023-06-12 14:36:51 +0000] [8] [INFO] Booting worker with pid: 8
+[2023-06-12 14:36:51 +0000] [9] [INFO] Booting worker with pid: 9
+[2023-06-12 14:36:51 +0000] [10] [INFO] Booting worker with pid: 10
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET / HTTP/1.1" 200 1293 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:41:52,019] INFO in app: Received vote for a
+[2023-06-12 14:41:52 +0000] [10] [INFO] Received vote for a
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:42:18,966] INFO in app: Received vote for b
+[2023-06-12 14:42:18 +0000] [9] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:18 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+172.31.3.91 - - [12/Jun/2023:14:42:19 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+[2023-06-12 14:42:33,973] INFO in app: Received vote for b
+[2023-06-12 14:42:33 +0000] [8] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:33 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+172.31.3.91 - - [12/Jun/2023:14:42:34 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+[root@ip-172-31-3-91 result]#  kubectl logs vote-94849dc97-wj2bm
+[2023-06-12 14:36:51 +0000] [1] [INFO] Starting gunicorn 20.1.0
+[2023-06-12 14:36:51 +0000] [1] [INFO] Listening at: http://0.0.0.0:80 (1)
+[2023-06-12 14:36:51 +0000] [1] [INFO] Using worker: sync
+[2023-06-12 14:36:51 +0000] [7] [INFO] Booting worker with pid: 7
+[2023-06-12 14:36:51 +0000] [8] [INFO] Booting worker with pid: 8
+[2023-06-12 14:36:51 +0000] [9] [INFO] Booting worker with pid: 9
+[2023-06-12 14:36:51 +0000] [10] [INFO] Booting worker with pid: 10
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET / HTTP/1.1" 200 1293 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:49 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:41:52,019] INFO in app: Received vote for a
+[2023-06-12 14:41:52 +0000] [10] [INFO] Received vote for a
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+172.31.3.91 - - [12/Jun/2023:14:41:52 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+[2023-06-12 14:42:18,966] INFO in app: Received vote for b
+[2023-06-12 14:42:18 +0000] [9] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:18 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+172.31.3.91 - - [12/Jun/2023:14:42:19 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0"
+[2023-06-12 14:42:33,973] INFO in app: Received vote for b
+[2023-06-12 14:42:33 +0000] [8] [INFO] Received vote for b
+172.31.3.91 - - [12/Jun/2023:14:42:33 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+172.31.3.91 - - [12/Jun/2023:14:42:34 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+[2023-06-12 14:49:29,905] INFO in app: Received vote for a
+[2023-06-12 14:49:29 +0000] [7] [INFO] Received vote for a
+172.31.3.91 - - [12/Jun/2023:14:49:29 +0000] "POST / HTTP/1.1" 200 1696 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42"
+172.31.3.91 - - [12/Jun/2023:14:49:30 +0000] "GET /static/stylesheets/style.css HTTP/1.1" 304 0 "http://18.138.35.140:31000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+
+9. DB pod logs show duplicate entry.
+
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(ee4f21c4b21c8dc) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(33a1a6f531c0920) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+[root@ip-172-31-3-91 result]#
+
+
+9.   After deleting the worker pod, a new worker pod came up. Don't see any changes on webpage.
+ 
+ kubectl delete pod  worker-dd46d7584-gldzm
+
+ 
+ 
+
+
+10.  After deleting db pod, new db pod came up,
+ kubectl delete  db-b54cd94f4-bjh9c
+
+
+11. db pod logs shows. OLD data is lost as persistant data was not present
+
+
+LOG:  database system was shut down at 2023-06-12 14:56:12 UTC
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ERROR:  relation "votes" does not exist at character 38
+STATEMENT:  SELECT vote, COUNT(id) AS count FROM votes GROUP BY vote
+ERROR:  relation "votes" does not exist at character 38
+STATEMENT:  SELECT vote, COUNT(id) AS count FROM votes GROUP BY vote
+ERROR:  relation "votes" does not exist at character 38
+STATEMENT:  SELECT vote, COUNT(id) AS count FROM votes GROUP BY vote
+[root@ip-172-31-3-91 result]#  kubectl get pods -o wide
+
+
+12. vote and reult web pages are resetted.
+
+Error performing query: error: relation "votes" does not exist
+Error performing query: error: relation "votes" does not exist
+Error performing query: error: relation "votes" does not exist
+
+
+
+
+
+13. After creating pv and pvc and redo the deplpyement, issue is not seen
+
+ kubectl get pv
+NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                 STORAGECLASS   REASON   AGE
+mongodb-pv   1Gi        RWO,ROX        Retain           Bound    default/mongodb-pvc                           19m
+[root@ip-172-31-3-91 k8s-specifications]# kubectl get pvc
+NAME          STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mongodb-pvc   Bound    mongodb-pv   1Gi        RWO,ROX                       19m
+[root@ip-172-31-3-91 k8s-specifications]#
+
+
+cat db-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      volumes:
+      - name: mongodb-data
+        hostPath:
+          path: /tmp/mongodb
+      containers:
+      - image: postgres:9.3
+        name: db
+        volumeMounts:
+        - mountPath:  /var/lib/postgresql/data
+          name: mongodb-data
+        ports:
+        - containerPort: 27017
+          protocol: TCP
+
+
+
+
+ kubectl get pods -o wide
+NAME                      READY   STATUS              RESTARTS   AGE   IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-647b484c45-tjv84       1/1     Running             0          5s    192.168.230.197   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-zgt4c     1/1     Running             0          5s    192.168.230.198   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-qg94f   1/1     Running             0          5s    192.168.230.204   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-kdn25      1/1     Running             0          5s    192.168.230.205   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-nt7lv    0/1     ContainerCreating   0          5s    <none>            ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 k8s-specifications]# kubectl get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE   IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-647b484c45-tjv84       1/1     Running   0          6s    192.168.230.197   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-zgt4c     1/1     Running   0          6s    192.168.230.198   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-qg94f   1/1     Running   0          6s    192.168.230.204   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-kdn25      1/1     Running   0          6s    192.168.230.205   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-nt7lv    1/1     Running   0          6s    192.168.230.203   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 k8s-specifications]# kubectl describe pod db-647b484c45-tjv84
+Name:         db-647b484c45-tjv84
+Namespace:    default
+Priority:     0
+Node:         ip-172-31-3-91.ap-southeast-1.compute.internal/172.31.3.91
+Start Time:   Mon, 12 Jun 2023 17:00:46 +0000
+Labels:       app=db
+              pod-template-hash=647b484c45
+Annotations:  <none>
+Status:       Running
+IP:           192.168.230.197
+IPs:
+  IP:           192.168.230.197
+Controlled By:  ReplicaSet/db-647b484c45
+Containers:
+  db:
+    Container ID:   docker://a0abff9fc620dbb5e2aacd1a1197dec023e549f6826a9cd9d7510dbed8e72c7d
+    Image:          postgres:9.3
+    Image ID:       docker-pullable://postgres@sha256:3cd40afb5803762170a1149ade6962fe24d405b3ccf2fe499ff1428635520a17
+    Port:           27017/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Mon, 12 Jun 2023 17:00:48 +0000
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/lib/postgresql/data from mongodb-data (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-jrlz2 (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  mongodb-data:
+    Type:          HostPath (bare host directory volume)
+    Path:          /tmp/mongodb
+    HostPathType:
+  default-token-jrlz2:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-jrlz2
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age   From                                                     Message
+  ----    ------     ----  ----                                                     -------
+  Normal  Scheduled  22s   default-scheduler                                        Successfully assigned default/db-647b484c45-tjv84 to ip-172-31-3-91.ap-southeast-1.compute.internal
+  Normal  Pulled     21s   kubelet, ip-172-31-3-91.ap-southeast-1.compute.internal  Container image "postgres:9.3" already present on machine
+  Normal  Created    21s   kubelet, ip-172-31-3-91.ap-southeast-1.compute.internal  Created container db
+  Normal  Started    20s   kubelet, ip-172-31-3-91.ap-southeast-1.compute.internal  Started container db
+[root@ip-172-31-3-91 k8s-specifications]# kubectl get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE    IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-647b484c45-tjv84       1/1     Running   0          107s   192.168.230.197   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-zgt4c     1/1     Running   0          107s   192.168.230.198   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-qg94f   1/1     Running   0          107s   192.168.230.204   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-kdn25      1/1     Running   0          107s   192.168.230.205   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-nt7lv    1/1     Running   0          107s   192.168.230.203   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-tjv84
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.utf8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/data ... ok
+creating subdirectories ... ok
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+creating configuration files ... ok
+creating template1 database in /var/lib/postgresql/data/base/1 ... ok
+initializing pg_authid ... ok
+setting password ... ok
+initializing dependencies ... ok
+creating system views ... ok
+loading system objects' descriptions ... ok
+creating collations ... ok
+creating conversions ... ok
+creating dictionaries ... ok
+setting privileges on built-in objects ... ok
+creating information schema ... ok
+loading PL/pgSQL server-side language ... ok
+vacuuming database template1 ... ok
+copying template1 to template0 ... ok
+copying template1 to postgres ... ok
+syncing data to disk ... ok
+
+WARNING: enabling "trust" authentication for local connections
+You can change this by editing pg_hba.conf or using the option -A, or
+--auth-local and --auth-host, the next time you run initdb.
+
+Success. You can now start the database server using:
+
+    postgres -D /var/lib/postgresql/data
+or
+    pg_ctl -D /var/lib/postgresql/data -l logfile start
+
+****************************************************
+WARNING: No password has been set for the database.
+         This will allow anyone with access to the
+         Postgres port to access your database. In
+         Docker's default configuration, this is
+         effectively any other container on the same
+         system.
+
+         Use "-e POSTGRES_PASSWORD=password" to set
+         it in "docker run".
+****************************************************
+waiting for server to start....LOG:  database system was shut down at 2023-06-12 17:00:53 UTC
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ done
+server started
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+LOG:  received fast shutdown request
+LOG:  aborting any active transactions
+LOG:  autovacuum launcher shutting down
+LOG:  shutting down
+waiting for server to shut down....LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+LOG:  database system was shut down at 2023-06-12 17:00:54 UTC
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ERROR:  relation "votes" does not exist at character 38
+STATEMENT:  SELECT vote, COUNT(id) AS count FROM votes GROUP BY vote
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-tjv84
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.utf8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/data ... ok
+creating subdirectories ... ok
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+creating configuration files ... ok
+creating template1 database in /var/lib/postgresql/data/base/1 ... ok
+initializing pg_authid ... ok
+setting password ... ok
+initializing dependencies ... ok
+creating system views ... ok
+loading system objects' descriptions ... ok
+creating collations ... ok
+creating conversions ... ok
+creating dictionaries ... ok
+setting privileges on built-in objects ... ok
+creating information schema ... ok
+loading PL/pgSQL server-side language ... ok
+vacuuming database template1 ... ok
+copying template1 to template0 ... ok
+copying template1 to postgres ... ok
+syncing data to disk ... ok
+
+WARNING: enabling "trust" authentication for local connections
+You can change this by editing pg_hba.conf or using the option -A, or
+--auth-local and --auth-host, the next time you run initdb.
+
+Success. You can now start the database server using:
+
+    postgres -D /var/lib/postgresql/data
+or
+    pg_ctl -D /var/lib/postgresql/data -l logfile start
+
+****************************************************
+WARNING: No password has been set for the database.
+         This will allow anyone with access to the
+         Postgres port to access your database. In
+         Docker's default configuration, this is
+         effectively any other container on the same
+         system.
+
+         Use "-e POSTGRES_PASSWORD=password" to set
+         it in "docker run".
+****************************************************
+waiting for server to start....LOG:  database system was shut down at 2023-06-12 17:00:53 UTC
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ done
+server started
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+LOG:  received fast shutdown request
+LOG:  aborting any active transactions
+LOG:  autovacuum launcher shutting down
+LOG:  shutting down
+waiting for server to shut down....LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+LOG:  database system was shut down at 2023-06-12 17:00:54 UTC
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ERROR:  relation "votes" does not exist at character 38
+STATEMENT:  SELECT vote, COUNT(id) AS count FROM votes GROUP BY vote
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(ee4f21c4b21c8dc) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+[root@ip-172-31-3-91 k8s-specifications]# kubectl delete pod db-647b484c45-tjv84
+pod "db-647b484c45-tjv84" deleted
+[root@ip-172-31-3-91 k8s-specifications]# kubectl get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE     IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-647b484c45-4wxt4       1/1     Running   0          39s     192.168.230.202   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-zgt4c     1/1     Running   0          3m20s   192.168.230.198   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-qg94f   1/1     Running   1          3m20s   192.168.230.204   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-kdn25      1/1     Running   0          3m20s   192.168.230.205   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-nt7lv    1/1     Running   1          3m20s   192.168.230.203   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-4wxt4
+LOG:  database system was interrupted; last known up at 2023-06-12 17:00:55 UTC
+LOG:  database system was not properly shut down; automatic recovery in progress
+LOG:  redo starts at 0/17822F0
+LOG:  record with zero length at 0/179A490
+LOG:  redo done at 0/179A460
+LOG:  last completed transaction was at log time 2023-06-12 17:03:09.541301+00
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-4wxt4
+LOG:  database system was interrupted; last known up at 2023-06-12 17:00:55 UTC
+LOG:  database system was not properly shut down; automatic recovery in progress
+LOG:  redo starts at 0/17822F0
+LOG:  record with zero length at 0/179A490
+LOG:  redo done at 0/179A460
+LOG:  last completed transaction was at log time 2023-06-12 17:03:09.541301+00
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(ee4f21c4b21c8dc) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+[root@ip-172-31-3-91 k8s-specifications]# kubectl delete db-647b484c45-4wxt4
+error: the server doesn't have a resource type "db-647b484c45-4wxt4"
+[root@ip-172-31-3-91 k8s-specifications]# kubectl delete pod db-647b484c45-4wxt4
+pod "db-647b484c45-4wxt4" deleted
+[root@ip-172-31-3-91 k8s-specifications]# kubectl get pods -o wide
+NAME                      READY   STATUS    RESTARTS   AGE     IP                NODE                                             NOMINATED NODE   READINESS GATES
+db-647b484c45-4pxlq       1/1     Running   0          37s     192.168.230.200   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+redis-868d64d78-zgt4c     1/1     Running   0          5m38s   192.168.230.198   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+result-5d57b59f4b-qg94f   0/1     Error     1          5m38s   192.168.230.204   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+vote-94849dc97-kdn25      1/1     Running   0          5m38s   192.168.230.205   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+worker-dd46d7584-nt7lv    0/1     Error     1          5m38s   192.168.230.203   ip-172-31-3-91.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-4pxlq
+LOG:  database system was interrupted; last known up at 2023-06-12 17:03:28 UTC
+LOG:  database system was not properly shut down; automatic recovery in progress
+LOG:  redo starts at 0/179A4F8
+LOG:  record with zero length at 0/179A758
+LOG:  redo done at 0/179A728
+LOG:  last completed transaction was at log time 2023-06-12 17:04:33.1827+00
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs db-647b484c45-4pxlq
+LOG:  database system was interrupted; last known up at 2023-06-12 17:03:28 UTC
+LOG:  database system was not properly shut down; automatic recovery in progress
+LOG:  redo starts at 0/179A4F8
+LOG:  record with zero length at 0/179A758
+LOG:  redo done at 0/179A728
+LOG:  last completed transaction was at log time 2023-06-12 17:04:33.1827+00
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  database system is ready to accept connections
+LOG:  autovacuum launcher started
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(ee4f21c4b21c8dc) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+ERROR:  duplicate key value violates unique constraint "votes_id_key"
+DETAIL:  Key (id)=(33a1a6f531c0920) already exists.
+STATEMENT:  INSERT INTO votes (id, vote) VALUES ($1, $2)
+[root@ip-172-31-3-91 k8s-specifications]# kubectl logs result-5d57b59f4b-qg94f
+Mon, 12 Jun 2023 17:06:29 GMT body-parser deprecated bodyParser: use individual json/urlencoded middlewares at server.js:73:9
+Mon, 12 Jun 2023 17:06:29 GMT body-parser deprecated undefined extended: provide extended option at ../node_modules/body-parser/index.js:104:29
+App running on port 80
+Connected to db
+[root@ip-172-31-3-91 k8s-specifications]#
+
+	
+	
+
